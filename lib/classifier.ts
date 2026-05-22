@@ -55,7 +55,7 @@ Receipt details:
 Respond with ONLY the category name, nothing else.`;
 
   const response = await client.chat.completions.create({
-    model: 'google/gemini-flash-1.5',
+    model: 'openai/gpt-oss-120b:free',
     messages: [{ role: 'user', content: prompt }],
     max_tokens: 20,
     temperature: 0,
