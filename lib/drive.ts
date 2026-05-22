@@ -21,7 +21,7 @@ function getDriveClient() {
     );
   }
 
-  const auth = new google.auth.OAuth2(clientId, clientSecret, 'urn:ietf:wg:oauth:2.0:oob');
+  const auth = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:3000/api/auth/callback');
   auth.setCredentials({ refresh_token: refreshToken });
   return google.drive({ version: 'v3', auth });
 }
