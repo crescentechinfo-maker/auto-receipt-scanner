@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 function buildFileName(merchant: string | undefined, date: Date, ext: string): string {
   const cleanMerchant = (merchant || 'Receipt')
@@ -27,44 +27,38 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadReceipt
     const formData = await req.formData();
     const file = formData.get('receipt') as File | null;
 
-    if (!file) {
-      return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
-    }
+    if (!file) return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) return NextResponse.json({ success: false, error: 'Unsupported file type. Use JPG, PNG, or WebP.' }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE) return NextResponse.json({ success: false, error: 'File too large. Max 10 MB.' }, { status: 400 });
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json({ success: false, error: 'Unsupported file type. Use JPG, PNG, or WebP.' }, { status: 400 });
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ success: false, error: 'File too large. Max 10 MB.' }, { status: 400 });
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Determine file extension
-    const extMap: Record<string, string> = {
-      'image/jpeg': '.jpg',
-      'image/png': '.png',
-      'image/webp': '.webp',
-      'image/heic': '.heic',
-    };
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const extMap: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' };
     const ext = extMap[file.type] ?? '.jpg';
-
     const now = new Date();
     const monthLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     // Step 1: OCR
+    console.log('[UPLOAD] Starting OCR...');
     const ocrResult = await extractTextFromImage(buffer);
+
+    if (ocrResult.ocrError) {
+      console.warn('[UPLOAD] OCR failed:', ocrResult.ocrError);
+      // Don't block — classify with empty text using rule fallback
+    } else {
+      console.log('[UPLOAD] OCR success. Merchant:', ocrResult.merchant, '| Total:', ocrResult.total);
+    }
 
     // Step 2: Classify
     const category = await classifyReceipt(ocrResult);
+    console.log('[UPLOAD] Category:', category);
 
     // Step 3: Build file name
     const fileName = buildFileName(ocrResult.merchant, now, ext);
 
     // Step 4: Upload to Drive
+    console.log('[UPLOAD] Uploading to Drive folder:', category);
     const driveResult = await uploadToDrive(buffer, fileName, file.type, category, monthLabel);
+    console.log('[UPLOAD] Drive upload success:', driveResult.folderName);
 
     // Step 5: Save record
     const record = {
@@ -88,10 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadReceipt
     return NextResponse.json({ success: true, record });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    console.error('Upload error:', message);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    console.error('[UPLOAD] Error:', message);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
