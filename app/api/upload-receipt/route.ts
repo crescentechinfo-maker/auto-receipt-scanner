@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { extractTextFromImage } from '@/lib/ocr';
-import { classifyReceipt } from '@/lib/classifier';
+import { classifyReceiptImage } from '@/lib/classifier';
 import { uploadToDrive } from '@/lib/drive';
 import { saveRecord } from '@/lib/storage';
 import { UploadReceiptResponse } from '@/lib/types';
@@ -37,48 +36,34 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadReceipt
     const now = new Date();
     const monthLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    // Step 1: OCR
-    console.log('[UPLOAD] Starting OCR...');
-    const ocrResult = await extractTextFromImage(buffer);
+    // Step 1: AI reads image + classifies in one shot
+    console.log('[UPLOAD] Sending image to AI for classification...');
+    const aiResult = await classifyReceiptImage(buffer, file.type);
+    console.log('[UPLOAD] AI result:', aiResult);
 
-    if (ocrResult.ocrError) {
-      console.warn('[UPLOAD] OCR failed:', ocrResult.ocrError);
-      // Don't block — classify with empty text using rule fallback
-    } else {
-      console.log('[UPLOAD] OCR success. Merchant:', ocrResult.merchant, '| Total:', ocrResult.total);
-    }
+    // Step 2: Upload to correct Drive folder
+    const fileName = buildFileName(aiResult.merchant, now, ext);
+    const driveResult = await uploadToDrive(buffer, fileName, file.type, aiResult.category, monthLabel);
+    console.log('[UPLOAD] Saved to:', driveResult.folderName);
 
-    // Step 2: Classify
-    const category = await classifyReceipt(ocrResult);
-    console.log('[UPLOAD] Category:', category);
-
-    // Step 3: Build file name
-    const fileName = buildFileName(ocrResult.merchant, now, ext);
-
-    // Step 4: Upload to Drive
-    console.log('[UPLOAD] Uploading to Drive folder:', category);
-    const driveResult = await uploadToDrive(buffer, fileName, file.type, category, monthLabel);
-    console.log('[UPLOAD] Drive upload success:', driveResult.folderName);
-
-    // Step 5: Save record
+    // Step 3: Save record
     const record = {
       id: uuidv4(),
       fileName,
       originalName: file.name,
-      category,
+      category: aiResult.category,
       group: driveResult.group,
-      merchant: ocrResult.merchant,
-      total: ocrResult.total,
+      merchant: aiResult.merchant,
+      total: aiResult.total,
       driveFileId: driveResult.fileId,
       driveLink: driveResult.fileLink,
       folderId: driveResult.folderId,
       folderName: driveResult.folderName,
       uploadedAt: now.toISOString(),
-      ocrText: ocrResult.text.slice(0, 500),
+      ocrText: '',
     };
 
     saveRecord(record);
-
     return NextResponse.json({ success: true, record });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
