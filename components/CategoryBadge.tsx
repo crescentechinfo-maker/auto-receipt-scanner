@@ -1,28 +1,36 @@
-import { ReceiptCategory } from '@/lib/types';
+import { ReceiptCategory, ReceiptGroup, CATEGORY_GROUP_MAP } from '@/lib/types';
 
-const COLOR_MAP: Record<ReceiptCategory, string> = {
-  'Food & Beverage': 'bg-orange-100 text-orange-700',
-  'Transport': 'bg-blue-100 text-blue-700',
-  'Shopping': 'bg-pink-100 text-pink-700',
-  'Bills & Utilities': 'bg-yellow-100 text-yellow-700',
-  'Travel': 'bg-teal-100 text-teal-700',
-  'Office / Work': 'bg-purple-100 text-purple-700',
-  'Others': 'bg-gray-100 text-gray-600',
+const GROUP_COLOR: Record<ReceiptGroup, string> = {
+  'Tax Deductible (Personal)': 'bg-green-100 text-green-700',
+  'Business Operations':       'bg-blue-100 text-blue-700',
+  'Daily Personal Finance':    'bg-orange-100 text-orange-700',
 };
 
 const ICON_MAP: Record<ReceiptCategory, string> = {
-  'Food & Beverage': '🍔',
-  'Transport': '🚗',
-  'Shopping': '🛍️',
-  'Bills & Utilities': '💡',
-  'Travel': '✈️',
-  'Office / Work': '💼',
-  'Others': '📋',
+  'Medical expenses':        '🏥',
+  'Education fees':          '🎓',
+  'Lifestyle & sports':      '🏋️',
+  'Childcare costs':         '👶',
+  'Insurance & retirement':  '🛡️',
+  'Charity donations':       '❤️',
+  'Travel & lodging':        '✈️',
+  'Client entertainment':    '🍽️',
+  'Office rent & utilities': '🏢',
+  'Software & tech':         '💻',
+  'Marketing & ads':         '📢',
+  'Staff payroll':           '👥',
+  'Repairs & maintenance':   '🔧',
+  'Groceries':               '🛒',
+  'Dining out':              '🍔',
+  'Fuel & transit':          '⛽',
+  'Home bills':              '💡',
+  'Leisure & hobbies':       '🎮',
 };
 
 export default function CategoryBadge({ category }: { category: ReceiptCategory }) {
+  const group = CATEGORY_GROUP_MAP[category];
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${COLOR_MAP[category]}`}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${GROUP_COLOR[group]}`}>
       <span>{ICON_MAP[category]}</span>
       {category}
     </span>

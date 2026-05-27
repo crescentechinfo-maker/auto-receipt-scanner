@@ -72,6 +72,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadReceipt
       fileName,
       originalName: file.name,
       category,
+      group: driveResult.group,
       merchant: ocrResult.merchant,
       total: ocrResult.total,
       driveFileId: driveResult.fileId,
